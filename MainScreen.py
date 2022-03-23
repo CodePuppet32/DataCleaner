@@ -1,8 +1,8 @@
 import tkinter as tk
 from tkinter import *
 from tkinter import ttk
-import pandas as pd
 from functools import partial
+from HomeScreen import df
 
 button_font = ('arial', 13)
 small_btn_font = ('arial', 10)
@@ -27,7 +27,7 @@ class MainWindow(tk.Tk):
         self.check_btn_vars = None
         self.numeric_df = None
         self.selected_columns = []
-        self.df = pd.read_csv("C:/Users/rahul/Downloads/dataset.csv")
+        self.df = df
         self.original_df = self.df.copy()
         self.columns = self.df.columns
 
@@ -87,7 +87,7 @@ class MainWindow(tk.Tk):
             .grid(row=1, column=3, padx=btn_padding_x, pady=btn_padding_y)
         Button(manipulate_button_frame, default_button_options, text='Dummy') \
             .grid(row=1, column=4, padx=btn_padding_x, pady=btn_padding_y)
-        Button(manipulate_button_frame, default_button_options, text='Redo') \
+        Button(manipulate_button_frame, default_button_options, text='Redo', command=self.redo) \
             .grid(row=1, column=5, padx=btn_padding_x, pady=btn_padding_y)
         Button(manipulate_button_frame, default_button_options, text='Undo', command=self.undo) \
             .grid(row=1, column=6, padx=btn_padding_x, pady=btn_padding_y)
@@ -101,17 +101,20 @@ class MainWindow(tk.Tk):
 
     def redo(self):
         if len(self.redo_stack):
+            self.undo_stack.append(self.df)
             self.df = self.redo_stack[-1]
-            
+            self.redo_stack.pop()
+            self.show_dataset()
 
     def undo(self):
         if len(self.undo_stack):
+            self.redo_stack.append(self.df)
             self.df = self.undo_stack[-1]
-            self.redo_stack.append(self.undo_stack[-1])
             self.undo_stack.pop()
             self.show_dataset()
 
     def show_original(self):
+        self.undo_stack.append(self.df)
         self.df = self.original_df
         self.show_dataset()
 
@@ -198,6 +201,3 @@ class MainWindow(tk.Tk):
         self.df.dropna(inplace=True)
         self.show_dataset()
 
-
-main_window = MainWindow()
-main_window.mainloop()

@@ -9,6 +9,7 @@ from PIL import ImageTk, Image
 big_heading_font = ('Helvetica', 28, 'bold')
 welcome_default_background = 'white'
 button_font = ('Lao UI', 13)
+df = pd.DataFrame()
 
 
 class WelcomeWindow(tk.Tk):
@@ -44,7 +45,8 @@ class WelcomeWindow(tk.Tk):
 
         right_button_frame = LabelFrame(mid_frame, bg=welcome_default_background, width=180, bd=0)
         self.begin_btn = Button(right_button_frame, text='Begin Cleaning', font=button_font, activebackground='white',
-                                bg='orange red', relief='groove', activeforeground='orange red', fg='white', border=0)
+                                bg='orange red', relief='groove', activeforeground='orange red', fg='white', border=0,
+                                command=self.destroy)
         self.begin_btn.place(relx=.2, rely=.45)
         right_button_frame.pack(side=LEFT, fill=Y)
 
@@ -54,11 +56,11 @@ class WelcomeWindow(tk.Tk):
         self.df = pd.DataFrame()
 
     def open_dataset(self):
+        global df
         dataframe_path = filedialog.askopenfile(mode='r', filetypes=[('CSV files', '*.csv')])
         if dataframe_path:
             dataframe_path = os.path.abspath(dataframe_path.name)
-            self.df = pd.read_csv(dataframe_path)
-            print(self.df.head())
+            df = pd.read_csv(dataframe_path)
 
 
 welcomeWindow = WelcomeWindow()
