@@ -2,13 +2,15 @@ import tkinter as tk
 from tkinter import *
 from tkinter import ttk
 from functools import partial
-from HomeScreen import df
+import pandas as pd
 from tkinter import messagebox
+import sys
 
 button_font = ('arial', 13)
 small_btn_font = ('arial', 10)
 default_text_font = ('Courier ', 10)
 default_text_font_bold = ('Courier ', 10, 'bold')
+
 
 default_button_options = {'activebackground': 'white', 'bg': 'RoyalBlue3', 'relief': 'groove',
                           'activeforeground': 'RoyalBlue3', 'width': '16',
@@ -31,7 +33,7 @@ class MainWindow(tk.Tk):
         self.check_btn_vars = None
         self.numeric_df = None
         self.selected_columns = []
-        self.df = df
+        self.df = pd.read_csv("C:/Users/rahul/Downloads/dataset.csv")
         self.original_df = self.df.copy()
         self.columns = self.df.columns
 
@@ -44,7 +46,7 @@ class MainWindow(tk.Tk):
 
         # label for showing rows x columns
         self.row_col_display = Label(fg='gray7')
-        self.row_col_display.place(x=1360//2, y=5)
+        self.row_col_display.place(x=1360 // 2, y=5)
 
         # to show dataframe
         dataset_frame = LabelFrame(self, text='DataFrame', border=0)
@@ -103,7 +105,7 @@ class MainWindow(tk.Tk):
     def change_dtype(self):
         data_types = ['object', 'int64', 'float64', 'bool', 'datetime64', 'timedelta[ns]', 'category']
 
-        clicked_arr = [StringVar() for _ in range(len(self.columns))]
+        clicked_arr = [StringVar() for i in range(len(self.columns))]
         for i in range(len(self.columns)):
             clicked_arr[i].set(self.df[self.columns[i]].dtype)
 
@@ -145,7 +147,6 @@ class MainWindow(tk.Tk):
                command=partial(self.change_dtype_helper, clicked_arr)).pack(pady=20)
 
     def change_dtype_helper(self, arr_list):
-        self.change_datatype_window.destroy()
         self.save_state()
         for i, column in enumerate(self.columns):
             cur_col_dtype = self.df[self.columns[i]].dtype
@@ -156,11 +157,7 @@ class MainWindow(tk.Tk):
                     messagebox.showinfo('Error', 'While Changing type of {}\n{}\nException Occurred\n'
                                                  'Other Columns Type has been changed'
                                         .format(self.columns[i].upper(), e))
-        self.update_table()
 
-    def update_table(self):
-        self.columns = self.df.columns
-        self.show_dataset()
 
     def save_state(self):
         self.undo_stack.append(self.df.copy())
@@ -170,14 +167,14 @@ class MainWindow(tk.Tk):
             self.undo_stack.append(self.df)
             self.df = self.redo_stack[-1]
             self.redo_stack.pop()
-            self.update_table()
+            self.show_dataset()
 
     def undo(self):
         if len(self.undo_stack):
             self.redo_stack.append(self.df)
             self.df = self.undo_stack[-1]
             self.undo_stack.pop()
-            self.update_table()
+            self.show_dataset()
 
     def show_original(self):
         self.undo_stack.append(self.df)
@@ -207,6 +204,8 @@ class MainWindow(tk.Tk):
         self.get_column_window.title('Select Columns')
         self.get_column_window.geometry('380x460')
 
+        total_columns = len(self.columns)
+
         top_list_frame = LabelFrame(self.get_column_window, height=400, width=380)
 
         scroll_bar = Scrollbar(top_list_frame)
@@ -215,10 +214,10 @@ class MainWindow(tk.Tk):
         check_list = Text(top_list_frame)
         check_list.pack(fill=X)
 
-        self.left_btn_list = [None for _ in range(len(self.columns))]
-        self.right_btn_list = [None for _ in range(len(self.columns))]
+        self.left_btn_list = [None for i in range(total_columns)]
+        self.right_btn_list = [None for i in range(total_columns)]
 
-        for i in range(len(self.columns)):
+        for i in range(total_columns):
             container = LabelFrame(check_list)
             self.left_btn_list[i] = Button(container, another_button_options, text='Select', width=10, cursor='hand2',
                                            command=partial(self.change_state, i, 0))
@@ -256,11 +255,16 @@ class MainWindow(tk.Tk):
     def delete_cols_helper(self):
         self.save_state()
         self.df.drop(self.selected_columns, inplace=True, axis=1)
+        self.columns = self.df.columns
         self.selected_columns = []
         self.get_column_window.destroy()
-        self.update_table()
+        self.show_dataset()
 
     def remove_nans(self):
         self.save_state()
         self.df.dropna(inplace=True)
         self.show_dataset()
+
+
+mwin = MainWindow()
+mwin.mainloop()
