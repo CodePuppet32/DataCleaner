@@ -2,7 +2,7 @@ import tkinter as tk
 from tkinter import *
 from tkinter import ttk
 from functools import partial
-from HomeScreen import df
+import HomeScreen
 from tkinter import messagebox
 
 button_font = ('arial', 13)
@@ -15,7 +15,7 @@ default_button_options = {'activebackground': 'white', 'bg': 'RoyalBlue3', 'reli
                           'fg': 'white', 'font': button_font, 'bd': 2}
 
 another_button_options = {'activebackground': 'black', 'bg': 'springgreen2', 'relief': 'groove',
-                          'activeforeground': 'springgreen2', 'width': '9',
+                          'activeforeground': 'springgreen2', 'width': '10',
                           'fg': 'black', 'font': small_btn_font, 'bd': 1}
 
 
@@ -31,7 +31,7 @@ class MainWindow(tk.Tk):
         self.check_btn_vars = None
         self.numeric_df = None
         self.selected_columns = []
-        self.df = df
+        self.df = HomeScreen.df
         self.original_df = self.df.copy()
         self.columns = self.df.columns
 
@@ -215,16 +215,16 @@ class MainWindow(tk.Tk):
         check_list = Text(top_list_frame)
         check_list.pack(fill=X)
 
-        self.left_btn_list = [None for _ in range(len(self.columns))]
-        self.right_btn_list = [None for _ in range(len(self.columns))]
+        self.left_btn_list = [Button for _ in range(len(self.columns))]
+        self.right_btn_list = [Button for _ in range(len(self.columns))]
 
         for i in range(len(self.columns)):
             container = LabelFrame(check_list)
-            self.left_btn_list[i] = Button(container, another_button_options, text='Select', width=10, cursor='hand2',
+            self.left_btn_list[i] = Button(container, another_button_options, text='Select', cursor='hand2',
                                            command=partial(self.change_state, i, 0))
             self.left_btn_list[i].pack(side=LEFT)
             Label(container, text=self.columns[i].upper(), width=24).pack(side=LEFT)
-            self.right_btn_list[i] = Button(container, another_button_options, text='Remove', width=10, cursor='hand2',
+            self.right_btn_list[i] = Button(container, another_button_options, text='Remove', cursor='hand2',
                                             state=DISABLED, command=partial(self.change_state, i, 1))
             self.right_btn_list[i].pack(side=LEFT)
             container.pack(fill=X)

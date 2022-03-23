@@ -2,7 +2,6 @@ import os.path
 import tkinter as tk
 from tkinter import *
 from tkinter import filedialog
-
 import pandas as pd
 from PIL import ImageTk, Image
 
@@ -10,6 +9,14 @@ big_heading_font = ('Helvetica', 28, 'bold')
 welcome_default_background = 'white'
 button_font = ('Lao UI', 13)
 df = pd.DataFrame()
+
+
+def open_dataset():
+    global df
+    dataframe_path = filedialog.askopenfile(mode='r', filetypes=[('CSV files', '*.csv')])
+    if dataframe_path:
+        dataframe_path = os.path.abspath(dataframe_path.name)
+        df = pd.read_csv(dataframe_path)
 
 
 class WelcomeWindow(tk.Tk):
@@ -33,7 +40,7 @@ class WelcomeWindow(tk.Tk):
         left_button_frame = LabelFrame(mid_frame, bg=welcome_default_background, width=180, bd=0)
         self.dataset_btn = Button(left_button_frame, text='Choose Dataset', font=button_font, activebackground='#ffcc66',
                                   bg='#141414', relief='groove', activeforeground='#141414', fg='#ffcc66',
-                                  border=0, command=self.open_dataset)
+                                  border=0, command=open_dataset)
         self.dataset_btn.place(relx=.2, rely=.45)
         left_button_frame.pack(side=LEFT, fill=Y)
 
@@ -54,14 +61,3 @@ class WelcomeWindow(tk.Tk):
                relief='groove').place(rely=.90, relx=.45)
 
         self.df = pd.DataFrame()
-
-    def open_dataset(self):
-        global df
-        dataframe_path = filedialog.askopenfile(mode='r', filetypes=[('CSV files', '*.csv')])
-        if dataframe_path:
-            dataframe_path = os.path.abspath(dataframe_path.name)
-            df = pd.read_csv(dataframe_path)
-
-
-welcomeWindow = WelcomeWindow()
-welcomeWindow.mainloop()
