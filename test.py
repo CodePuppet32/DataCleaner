@@ -4,7 +4,7 @@ from tkinter import ttk
 from functools import partial
 import pandas as pd
 from tkinter import messagebox
-import sys
+from sklearn.impute import SimpleImputer
 
 button_font = ('arial', 13)
 small_btn_font = ('arial', 10)
@@ -24,6 +24,7 @@ another_button_options = {'activebackground': 'black', 'bg': 'springgreen2', 're
 class MainWindow(tk.Tk):
     def __init__(self):
         super().__init__()
+        self.impute_window = None
         self.change_datatype_window = None
         self.undo_stack = []
         self.redo_stack = []
@@ -75,7 +76,7 @@ class MainWindow(tk.Tk):
             .grid(row=0, column=2, padx=btn_padding_x, pady=btn_padding_y)
         Button(manipulate_button_frame, default_button_options, text='One-Hot Encode') \
             .grid(row=0, column=3, padx=btn_padding_x, pady=btn_padding_y)
-        Button(manipulate_button_frame, default_button_options, text='Dummy') \
+        Button(manipulate_button_frame, default_button_options, text='Impute', command=self.impute) \
             .grid(row=0, column=4, padx=btn_padding_x, pady=btn_padding_y)
         Button(manipulate_button_frame, default_button_options, text='Dummy') \
             .grid(row=0, column=5, padx=btn_padding_x, pady=btn_padding_y)
@@ -97,10 +98,77 @@ class MainWindow(tk.Tk):
             .grid(row=1, column=5, padx=btn_padding_x, pady=btn_padding_y)
         Button(manipulate_button_frame, default_button_options, text='Undo', command=self.undo) \
             .grid(row=1, column=6, padx=btn_padding_x, pady=btn_padding_y)
-        Button(manipulate_button_frame, default_button_options, text='Original Dataset', command=self.show_original) \
-            .grid(row=1, column=7, padx=btn_padding_x, pady=btn_padding_y)
+        self.show_original_btn = Button(manipulate_button_frame, default_button_options, text='Original Dataset', command=self.show_original)
+        self.show_original_btn.grid(row=1, column=7, padx=btn_padding_x, pady=btn_padding_y)
 
         manipulate_button_frame.place(y=screen_height * 2 / 5 + 20, height=screen_height * 3 / 5, width=screen_width)
+
+    def impute(self):
+        numerical_data_types = ['int64', 'float64']
+        numerical_cols = []
+        for col in self.columns:
+            if self.df[col].dtype in numerical_data_types:
+                numerical_cols.append(col)
+        nan_cols = [col for col in self.df.columns if self.df[col].isnull().any()]
+
+        if len(nan_cols) == 0:
+            messagebox.showinfo('Info!', 'No Numerical Column has NaN value')
+            return
+
+        options = ['none', 'mean', 'median', 'most_frequent']
+        clicked_arr = [StringVar() for _ in range(len(nan_cols))]
+        for var in clicked_arr:
+            var.set(options[0])
+
+        self.impute_window = Toplevel(self)
+        self.impute_window.title('Imputer')
+        width = 380
+        height = min(len(nan_cols) * 30 + 80, 460)
+        self.impute_window.geometry('{}x{}'.format(width, height))
+
+        top_list_frame = LabelFrame(self.impute_window, border=0)
+        scroll_bar = Scrollbar(top_list_frame)
+        scroll_bar.pack(side=RIGHT, fill=Y)
+        check_list = Text(top_list_frame, height=height/21)
+        check_list.pack(fill=X)
+
+        container = LabelFrame(check_list, border=0)
+        Label(container, text='COLUMN', width=34).pack(side=LEFT)
+        Label(container, text='STRATEGY', width=16).pack(side=LEFT)
+        container.pack(fill=X)
+        check_list.window_create('end', window=container)
+        check_list.insert('end', '\n')
+
+        for i in range(len(nan_cols)):
+            container = LabelFrame(check_list, border=0)
+            cur_col = nan_cols[i]
+            Label(container, text=cur_col.upper(), width=29, font=default_text_font_bold).pack(side=LEFT)
+            option_menu = OptionMenu(container, clicked_arr[i], *options)
+            option_menu.configure(width=10, font=default_text_font)
+            option_menu.pack(side=LEFT, fill=X)
+            container.pack(fill=X)
+
+            check_list.window_create('end', window=container)
+            check_list.insert('end', '\n')
+
+        check_list.config(yscrollcommand=scroll_bar.set)
+        scroll_bar.config(command=check_list.yview)
+        check_list.configure(state='disabled')
+        top_list_frame.pack()
+        Button(self.impute_window, another_button_options, text='Impute',
+               command=partial(self.impute_helper, clicked_arr, nan_cols)).place(relx=.5, y=height - 25, anchor=CENTER)
+
+    def impute_helper(self, arr_list, col_list):
+        self.impute_window.destroy()
+
+        for i, col in enumerate(col_list):
+            strategy = arr_list[i].get()
+            if strategy != 'none':
+                imputer = SimpleImputer(strategy=strategy)
+                self.df[col] = imputer.fit_transform(self.df[col].values.reshape(-1, 1))
+
+        self.save_state()
+        self.show_dataset()
 
     def change_dtype(self):
         data_types = ['object', 'int64', 'float64', 'bool', 'datetime64', 'timedelta[ns]', 'category']
@@ -158,8 +226,12 @@ class MainWindow(tk.Tk):
                                                  'Other Columns Type has been changed'
                                         .format(self.columns[i].upper(), e))
 
-
     def save_state(self):
+        # first condition makes sure that the current dataframe has some changes made to it
+        # second condition takes care of situation when we have not select any columns to manipulate
+        if (len(self.undo_stack) and self.undo_stack[-1].equals(self.df)) or self.df.equals(self.original_df):
+            return
+
         self.undo_stack.append(self.df.copy())
 
     def redo(self):
@@ -177,9 +249,10 @@ class MainWindow(tk.Tk):
             self.show_dataset()
 
     def show_original(self):
-        self.undo_stack.append(self.df)
-        self.df = self.original_df
-        self.show_dataset()
+        if not self.df.equals(self.original_df):
+            self.undo_stack.append(self.df)
+            self.df = self.original_df
+            self.show_dataset()
 
     def clear_all(self):
         for item in self.tree_view.get_children():

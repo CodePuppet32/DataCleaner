@@ -2,6 +2,9 @@ import tkinter as tk
 from tkinter import *
 from tkinter import ttk
 from functools import partial
+
+from sklearn.impute import SimpleImputer
+
 import HomeScreen
 from tkinter import messagebox
 
@@ -12,7 +15,7 @@ default_text_font_bold = ('Courier ', 10, 'bold')
 
 default_button_options = {'activebackground': 'white', 'bg': 'RoyalBlue3', 'relief': 'groove',
                           'activeforeground': 'RoyalBlue3', 'width': '16',
-                          'fg': 'white', 'font': button_font, 'bd': 2}
+                          'fg': 'white', 'font': button_font, 'bd': 1}
 
 another_button_options = {'activebackground': 'black', 'bg': 'springgreen2', 'relief': 'groove',
                           'activeforeground': 'springgreen2', 'width': '10',
@@ -22,6 +25,7 @@ another_button_options = {'activebackground': 'black', 'bg': 'springgreen2', 're
 class MainWindow(tk.Tk):
     def __init__(self):
         super().__init__()
+        self.impute_window = None
         self.change_datatype_window = None
         self.undo_stack = []
         self.redo_stack = []
@@ -43,11 +47,11 @@ class MainWindow(tk.Tk):
         self.title('Happy Data Cleaning')
 
         # label for showing rows x columns
-        self.row_col_display = Label(fg='gray7')
-        self.row_col_display.place(x=1360//2, y=5)
+        self.row_col_display = Label(fg='gray7', font=('Helvetica', 12, 'bold'))
+        self.row_col_display.place(x=1360//2, y=2)
 
         # to show dataframe
-        dataset_frame = LabelFrame(self, text='DataFrame', border=0)
+        dataset_frame = LabelFrame(self, text='DataFrame', border=0, padx=10)
         dataset_frame.place(y=20, height=screen_height * 2 / 5, width=screen_width)
         self.tree_view = ttk.Treeview(dataset_frame)
         self.tree_view.place(relheight=1, relwidth=1)
@@ -62,8 +66,8 @@ class MainWindow(tk.Tk):
         self.show_dataset()
 
         # bottom Frame
-        manipulate_button_frame = LabelFrame(self, border=0, text='Manipulate DataFrame', pady=10)
-        btn_padding_x = 8
+        manipulate_button_frame = LabelFrame(self, border=0, text='Manipulate DataFrame', pady=10, padx=10)
+        btn_padding_x = 7
         btn_padding_y = 12
         Button(manipulate_button_frame, default_button_options, text='Delete NaN Rows', command=self.remove_nans) \
             .grid(row=0, column=0, padx=btn_padding_x, pady=btn_padding_y)
@@ -73,7 +77,7 @@ class MainWindow(tk.Tk):
             .grid(row=0, column=2, padx=btn_padding_x, pady=btn_padding_y)
         Button(manipulate_button_frame, default_button_options, text='One-Hot Encode') \
             .grid(row=0, column=3, padx=btn_padding_x, pady=btn_padding_y)
-        Button(manipulate_button_frame, default_button_options, text='Dummy') \
+        Button(manipulate_button_frame, default_button_options, text='Impute', command=self.impute) \
             .grid(row=0, column=4, padx=btn_padding_x, pady=btn_padding_y)
         Button(manipulate_button_frame, default_button_options, text='Dummy') \
             .grid(row=0, column=5, padx=btn_padding_x, pady=btn_padding_y)
@@ -100,7 +104,83 @@ class MainWindow(tk.Tk):
 
         manipulate_button_frame.place(y=screen_height * 2 / 5 + 20, height=screen_height * 3 / 5, width=screen_width)
 
+    def impute(self):
+        numerical_data_types = ['int64', 'float64']
+        numerical_cols = []
+        for col in self.columns:
+            if self.df[col].dtype in numerical_data_types:
+                numerical_cols.append(col)
+        nan_cols = [col for col in self.df.columns if self.df[col].isnull().any()]
+
+        if len(nan_cols) == 0:
+            messagebox.showinfo('Info!', 'No Numerical Column has NaN value')
+            return
+
+        options = ['none', 'mean', 'median', 'most_frequent']
+        clicked_arr = [StringVar() for _ in range(len(nan_cols))]
+
+        self.impute_window = Toplevel(self)
+        self.impute_window.title('Imputer')
+        self.impute_window.configure(background='bisque')
+        width = 380
+        height = min(len(nan_cols) * 30 + 80, 460)
+        self.impute_window.geometry('{}x{}'.format(width, height))
+        self.impute_window.resizable(False, False)
+
+        for var in clicked_arr:
+            var.set(options[0])
+
+        top_list_frame = LabelFrame(self.impute_window, border=0)
+
+        scroll_bar = Scrollbar(top_list_frame)
+        scroll_bar.pack(side=RIGHT, fill=Y)
+
+        check_list = Text(top_list_frame, height=height-50)
+        check_list.pack(fill=X)
+
+        container = LabelFrame(check_list)
+        Label(container, text='COLUMN', width=34).pack(side=LEFT)
+        Label(container, text='STRATEGY', width=16).pack(side=LEFT)
+        container.pack(fill=X)
+        check_list.window_create('end', window=container)
+        check_list.insert('end', '\n')
+
+        for i in range(len(nan_cols)):
+            container = LabelFrame(check_list, border=0)
+            cur_col = nan_cols[i]
+            Label(container, text=cur_col.upper(), width=29, font=default_text_font_bold).pack(side=LEFT)
+            option_menu = OptionMenu(container, clicked_arr[i], *options)
+            option_menu.configure(width=10, font=default_text_font)
+            option_menu.pack(side=LEFT, fill=X)
+            container.pack(fill=X)
+
+            check_list.window_create('end', window=container)
+            check_list.insert('end', '\n')
+
+        check_list.config(yscrollcommand=scroll_bar.set)
+        scroll_bar.config(command=check_list.yview)
+        check_list.configure(state='disabled')
+        top_list_frame.pack()
+        Button(self.impute_window, another_button_options, text='Impute',
+               command=partial(self.impute_helper, clicked_arr, nan_cols)).place(relx=.5, y=height-25, anchor=CENTER)
+
+    def impute_helper(self, arr_list, col_list):
+        self.impute_window.destroy()
+
+        for i, col in enumerate(col_list):
+            strategy = arr_list[i].get()
+            if strategy != 'none':
+                imputer = SimpleImputer(strategy=strategy)
+                self.df[col] = imputer.fit_transform(self.df[col].values.reshape(-1, 1))
+
+        self.save_state()
+        self.show_dataset()
+
     def change_dtype(self):
+        if len(self.columns) == 0:
+            messagebox.showinfo('Info!', 'No Column to change datatype of')
+            return
+
         data_types = ['object', 'int64', 'float64', 'bool', 'datetime64', 'timedelta[ns]', 'category']
 
         clicked_arr = [StringVar() for _ in range(len(self.columns))]
@@ -109,7 +189,10 @@ class MainWindow(tk.Tk):
 
         self.change_datatype_window = Toplevel(self)
         self.change_datatype_window.title('Change Datatype')
-        self.change_datatype_window.geometry('480x460')
+        width = 380
+        height = min(len(self.columns) * 30 + 80, 460)
+        self.change_datatype_window.geometry('{}x{}'.format(width, height))
+        self.change_datatype_window.resizable(False, False)
 
         top_list_frame = LabelFrame(self.change_datatype_window)
 
@@ -120,8 +203,8 @@ class MainWindow(tk.Tk):
         check_list.pack(fill=X)
 
         container = LabelFrame(check_list, border=0)
-        Label(container, text='Column', width=44).pack(side=LEFT)
-        Label(container, text='Change to Dtype', width=22).pack(side=LEFT)
+        Label(container, text='Column', width=36).pack(side=LEFT)
+        Label(container, text='Change to Dtype', width=14).pack(side=LEFT)
         container.pack(fill=X)
         check_list.window_create('end', window=container)
         check_list.insert('end', '\n')
@@ -129,7 +212,7 @@ class MainWindow(tk.Tk):
         for i in range(len(self.columns)):
             container = LabelFrame(check_list, border=0)
             cur_col = self.columns[i]
-            Label(container, text=cur_col.upper(), width=42, font=default_text_font_bold).pack(side=LEFT)
+            Label(container, text=cur_col.upper(), width=29, font=default_text_font_bold).pack(side=LEFT)
             option_menu = OptionMenu(container, clicked_arr[i], *data_types)
             option_menu.configure(width=10, font=default_text_font)
             option_menu.pack(side=LEFT, fill=X)
@@ -137,12 +220,13 @@ class MainWindow(tk.Tk):
 
             check_list.window_create('end', window=container)
             check_list.insert('end', '\n')
+
         check_list.config(yscrollcommand=scroll_bar.set)
         scroll_bar.config(command=check_list.yview)
         check_list.configure(state='disabled')
         top_list_frame.pack()
         Button(self.change_datatype_window, another_button_options, text='Change',
-               command=partial(self.change_dtype_helper, clicked_arr)).pack(pady=20)
+               command=partial(self.change_dtype_helper, clicked_arr)).place(relx=.5, y=height-25, anchor=CENTER)
 
     def change_dtype_helper(self, arr_list):
         self.change_datatype_window.destroy()
