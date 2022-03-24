@@ -2,9 +2,9 @@ import tkinter as tk
 from tkinter import *
 from tkinter import ttk
 from functools import partial
-
+import pandas as pd
+from sklearn import preprocessing
 from sklearn.impute import SimpleImputer
-
 import HomeScreen
 from tkinter import messagebox
 
@@ -104,6 +104,65 @@ class MainWindow(tk.Tk):
 
         manipulate_button_frame.place(y=screen_height * 2 / 5 + 20, height=screen_height * 3 / 5, width=screen_width)
 
+    def one_hot_encode(self):
+        category_cols = self.df.select_dtypes(include='O').keys()
+
+        if len(category_cols) == 0:
+            messagebox.showinfo('Info!', 'No Categorical Column Found')
+            return
+
+        self.one_hot_encode_window = Toplevel(self)
+        self.one_hot_encode_window.title('One Hot Encoder')
+        width = 360
+        height = min(len(category_cols) * 30 + 60, 460)
+        self.one_hot_encode_window.geometry('{}x{}'.format(width, height))
+        self.one_hot_encode_window.resizable(False, False)
+
+        top_list_frame = LabelFrame(self.one_hot_encode_window, width=width)
+        scroll_bar = Scrollbar(top_list_frame)
+        scroll_bar.pack(side=RIGHT, fill=Y)
+
+        check_list = Text(top_list_frame, height=height-50)
+        check_list.pack(fill=X)
+
+        self.left_btn_list = [Button for _ in range(len(category_cols))]
+        self.right_btn_list = [Button for _ in range(len(category_cols))]
+
+        for i in range(len(category_cols)):
+            container = LabelFrame(check_list)
+            self.left_btn_list[i] = Button(container, another_button_options, text='Select', cursor='hand2',
+                                           command=partial(self.change_state, i, 0, category_cols))
+            self.left_btn_list[i].pack(side=LEFT)
+            Label(container, text=category_cols[i].upper(), width=24).pack(side=LEFT)
+            self.right_btn_list[i] = Button(container, another_button_options, text='Remove', cursor='hand2',
+                                            state=DISABLED, command=partial(self.change_state, i, 1, category_cols))
+            self.right_btn_list[i].pack(side=LEFT)
+            container.pack(fill=X)
+
+            check_list.window_create('end', window=container)
+            check_list.insert('end', '\n')
+
+        check_list.config(yscrollcommand=scroll_bar.set)
+        scroll_bar.config(command=check_list.yview)
+        check_list.configure(state='disabled')
+
+        top_list_frame.pack()
+
+        bottom_button_frame = LabelFrame(self.one_hot_encode_window)
+        Button(bottom_button_frame, default_button_options, text='Encode', bg='red3',
+               command=self.one_hot_encode_helper).pack(side=LEFT)
+        bottom_button_frame.place(relx=.5, y=height-25, anchor=CENTER)
+
+    def one_hot_encode_helper(self):
+        self.one_hot_encode_window.destroy()
+        self.save_state()
+        encoder = preprocessing.OneHotEncoder()
+        for i, col in enumerate(self.selected_columns):
+            encoded_series = encoder.fit_transform(self.df[col].values.reshape(-1, 1)).toarray().reshape(-1)
+            self.df[col] = pd.Series(encoded_series)
+        self.update_table()
+        self.selected_columns = []
+
     def impute(self):
         numerical_data_types = ['int64', 'float64']
         numerical_cols = []
@@ -174,7 +233,7 @@ class MainWindow(tk.Tk):
                 self.df[col] = imputer.fit_transform(self.df[col].values.reshape(-1, 1))
 
         self.save_state()
-        self.show_dataset()
+        self.update_table()
 
     def change_dtype(self):
         if len(self.columns) == 0:
@@ -273,7 +332,7 @@ class MainWindow(tk.Tk):
         if not self.df.equals(self.original_df):
             self.undo_stack.append(self.df)
             self.df = self.original_df
-            self.show_dataset()
+            self.update_table()
 
     def clear_all(self):
         for item in self.tree_view.get_children():
@@ -292,9 +351,13 @@ class MainWindow(tk.Tk):
             self.tree_view.insert("", "end", values=row)
 
     def delete_cols(self):
+        self.selected_columns = []
+
         self.get_column_window = Toplevel(self)
         self.get_column_window.title('Select Columns')
         self.get_column_window.geometry('380x460')
+
+        total_columns = len(self.columns)
 
         top_list_frame = LabelFrame(self.get_column_window, height=400, width=380)
 
@@ -304,17 +367,17 @@ class MainWindow(tk.Tk):
         check_list = Text(top_list_frame)
         check_list.pack(fill=X)
 
-        self.left_btn_list = [Button for _ in range(len(self.columns))]
-        self.right_btn_list = [Button for _ in range(len(self.columns))]
+        self.left_btn_list = [None for i in range(total_columns)]
+        self.right_btn_list = [None for i in range(total_columns)]
 
-        for i in range(len(self.columns)):
+        for i in range(total_columns):
             container = LabelFrame(check_list)
-            self.left_btn_list[i] = Button(container, another_button_options, text='Select', cursor='hand2',
-                                           command=partial(self.change_state, i, 0))
+            self.left_btn_list[i] = Button(container, another_button_options, text='Select', width=10, cursor='hand2',
+                                           command=partial(self.change_state, i, 0, self.columns))
             self.left_btn_list[i].pack(side=LEFT)
             Label(container, text=self.columns[i].upper(), width=24).pack(side=LEFT)
-            self.right_btn_list[i] = Button(container, another_button_options, text='Remove', cursor='hand2',
-                                            state=DISABLED, command=partial(self.change_state, i, 1))
+            self.right_btn_list[i] = Button(container, another_button_options, text='Remove', width=10, cursor='hand2',
+                                            state=DISABLED, command=partial(self.change_state, i, 1, self.columns))
             self.right_btn_list[i].pack(side=LEFT)
             container.pack(fill=X)
 
@@ -332,13 +395,13 @@ class MainWindow(tk.Tk):
                command=partial(self.delete_cols_helper)).pack(side=LEFT)
         bottom_button_frame.pack(pady=14)
 
-    def change_state(self, idx, right):
+    def change_state(self, idx, right, cols):
         if right == 1:
-            self.selected_columns.remove(self.columns[idx])
+            self.selected_columns.remove(cols[idx])
             self.left_btn_list[idx]['state'] = NORMAL
             self.right_btn_list[idx]['state'] = DISABLED
         else:
-            self.selected_columns.append(self.columns[idx])
+            self.selected_columns.append(cols[idx])
             self.left_btn_list[idx]['state'] = DISABLED
             self.right_btn_list[idx]['state'] = NORMAL
 
@@ -352,4 +415,4 @@ class MainWindow(tk.Tk):
     def remove_nans(self):
         self.save_state()
         self.df.dropna(inplace=True)
-        self.show_dataset()
+        self.update_table()
