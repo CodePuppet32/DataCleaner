@@ -247,6 +247,11 @@ class MainWindow(tk.Tk):
         self.show_dataset()
 
     def save_state(self):
+        # first condition makes sure that the current dataframe has some changes made to it
+        # second condition takes care of situation when we have not select any columns to manipulate
+        if (len(self.undo_stack) and self.undo_stack[-1].equals(self.df)) or self.df.equals(self.original_df):
+            return
+
         self.undo_stack.append(self.df.copy())
 
     def redo(self):
@@ -264,9 +269,11 @@ class MainWindow(tk.Tk):
             self.update_table()
 
     def show_original(self):
-        self.undo_stack.append(self.df)
-        self.df = self.original_df
-        self.show_dataset()
+        # condition to check if user is trying to see the original while current df is original
+        if not self.df.equals(self.original_df):
+            self.undo_stack.append(self.df)
+            self.df = self.original_df
+            self.show_dataset()
 
     def clear_all(self):
         for item in self.tree_view.get_children():
@@ -285,8 +292,6 @@ class MainWindow(tk.Tk):
             self.tree_view.insert("", "end", values=row)
 
     def delete_cols(self):
-        self.selected_columns = []
-
         self.get_column_window = Toplevel(self)
         self.get_column_window.title('Select Columns')
         self.get_column_window.geometry('380x460')
