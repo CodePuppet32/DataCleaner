@@ -3,5 +3,8 @@ from MainScreen import *
 
 welcomeWindow = WelcomeWindow()
 welcomeWindow.mainloop()
+
 mainWindow = MainWindow()
-mainWindow.mainloop()
+if mainWindow.df.shape != (0, 0):
+    mainWindow.mainloop()
+

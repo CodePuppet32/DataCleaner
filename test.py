@@ -4,10 +4,10 @@ from tkinter import ttk
 from functools import partial
 import pandas as pd
 from tkinter import messagebox
-
+import seaborn as sns
+import matplotlib.pyplot as plt
 from sklearn import preprocessing
 from sklearn.impute import SimpleImputer
-from sklearn.preprocessing import OneHotEncoder
 
 button_font = ('arial', 13)
 small_btn_font = ('arial', 10)
@@ -82,7 +82,7 @@ class MainWindow(tk.Tk):
             .grid(row=0, column=3, padx=btn_padding_x, pady=btn_padding_y)
         Button(manipulate_button_frame, default_button_options, text='Impute', command=self.impute) \
             .grid(row=0, column=4, padx=btn_padding_x, pady=btn_padding_y)
-        Button(manipulate_button_frame, default_button_options, text='Dummy') \
+        Button(manipulate_button_frame, default_button_options, text='Co-relation HeatMap', command=self.correlation_map) \
             .grid(row=0, column=5, padx=btn_padding_x, pady=btn_padding_y)
         Button(manipulate_button_frame, default_button_options, text='Dummy') \
             .grid(row=0, column=6, padx=btn_padding_x, pady=btn_padding_y)
@@ -106,6 +106,17 @@ class MainWindow(tk.Tk):
         self.show_original_btn.grid(row=1, column=7, padx=btn_padding_x, pady=btn_padding_y)
 
         manipulate_button_frame.place(y=screen_height * 2 / 5 + 20, height=screen_height * 3 / 5, width=screen_width)
+
+    def correlation_map(self):
+        corr = self.df.corr()
+        for col in corr.columns:
+            total_row = corr.shape[0]
+            total_na = corr[col].isna().sum()
+            if total_na == total_row:
+                corr.drop(col, inplace=True, axis=1)
+                corr.drop(col, inplace=True, axis=0)
+        sns.heatmap(corr, center=0)
+        plt.show()
 
     def one_hot_encode(self):
         category_cols = self.df.select_dtypes(include='O').keys()

@@ -3,6 +3,8 @@ from tkinter import *
 from tkinter import ttk
 from functools import partial
 import pandas as pd
+from matplotlib import pyplot as plt
+import seaborn as sns
 from sklearn import preprocessing
 from sklearn.impute import SimpleImputer
 import HomeScreen
@@ -25,16 +27,19 @@ another_button_options = {'activebackground': 'black', 'bg': 'springgreen2', 're
 class MainWindow(tk.Tk):
     def __init__(self):
         super().__init__()
+        self.one_hot_encode_window = None
         self.impute_window = None
         self.change_datatype_window = None
+        self.get_column_window = None
+
         self.undo_stack = []
         self.redo_stack = []
+
         self.right_btn_list = None
         self.left_btn_list = None
-        self.get_column_window = None
         self.check_btn_vars = None
-        self.numeric_df = None
         self.selected_columns = []
+
         self.df = HomeScreen.df
         self.original_df = self.df.copy()
         self.columns = self.df.columns
@@ -79,7 +84,7 @@ class MainWindow(tk.Tk):
             .grid(row=0, column=3, padx=btn_padding_x, pady=btn_padding_y)
         Button(manipulate_button_frame, default_button_options, text='Impute', command=self.impute) \
             .grid(row=0, column=4, padx=btn_padding_x, pady=btn_padding_y)
-        Button(manipulate_button_frame, default_button_options, text='Dummy') \
+        Button(manipulate_button_frame, default_button_options, text='Correlation', command=self.correlation_map) \
             .grid(row=0, column=5, padx=btn_padding_x, pady=btn_padding_y)
         Button(manipulate_button_frame, default_button_options, text='Dummy') \
             .grid(row=0, column=6, padx=btn_padding_x, pady=btn_padding_y)
@@ -103,6 +108,17 @@ class MainWindow(tk.Tk):
             .grid(row=1, column=7, padx=btn_padding_x, pady=btn_padding_y)
 
         manipulate_button_frame.place(y=screen_height * 2 / 5 + 20, height=screen_height * 3 / 5, width=screen_width)
+
+    def correlation_map(self):
+        corr = self.df.corr()
+        for col in corr.columns:
+            total_row = corr.shape[0]
+            total_na = corr[col].isna().sum()
+            if total_na == total_row:
+                corr.drop(col, inplace=True, axis=1)
+                corr.drop(col, inplace=True, axis=0)
+        sns.heatmap(corr, center=0)
+        plt.show()
 
     def one_hot_encode(self):
         category_cols = self.df.select_dtypes(include='O').keys()
